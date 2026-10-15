@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+</head>
+<body style="margin:0">
+<title>Pre-Send Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: internal tool. Left rail = clients + their preferences; main = summary, candidate groups, rejection feedback. */
+:root{
+  --bg:#FFFFFF; --surface:#F7F9FC; --ink:#0F1B2D; --ink-2:#4B5565; --ink-3:#8A94A6; --line:#E5E9F0;
+  --blue:#1F5EDB; --blue-wash:#EEF3FD; --blue-soft:#9DB8F2;
+  --ok:#15803D; --ok-wash:#E9F7EE; --warn:#B45309; --warn-wash:#FEF3E2; --bad:#B42318; --bad-wash:#FDECEA;
+  --font:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1420; --surface:#141D2C; --ink:#E8EDF5; --ink-2:#AEB8C8; --ink-3:#7A869A; --line:#243044;
+    --blue:#6E9BF2; --blue-wash:#16233A; --blue-soft:#34528C;
+    --ok:#5BC48A; --ok-wash:#12291C; --warn:#F5B35A; --warn-wash:#2E2414; --bad:#F28B82; --bad-wash:#2E1615; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1420; --surface:#141D2C; --ink:#E8EDF5; --ink-2:#AEB8C8; --ink-3:#7A869A; --line:#243044;
+  --blue:#6E9BF2; --blue-wash:#16233A; --blue-soft:#34528C;
+  --ok:#5BC48A; --ok-wash:#12291C; --warn:#F5B35A; --warn-wash:#2E2414; --bad:#F28B82; --bad-wash:#2E1615; color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{margin:0;font-weight:600}
+p{margin:0}
+button{font:inherit}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+.top{border-bottom:1px solid var(--line);position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-index:5}
+.top .in{max-width:1240px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.top h1{font-size:16px}
+.top h1 span{font-weight:400;color:var(--ink-3)}
+.badge{font-size:12px;color:var(--ink-2);border:1px solid var(--line);border-radius:999px;padding:3px 10px}
+
+.app{max-width:1240px;margin:0 auto;padding:20px;display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:start}
+.rail{display:grid;gap:16px;position:sticky;top:72px}
+.panel{border:1px solid var(--line);border-radius:8px;background:var(--bg);min-width:0}
+.panel > h2{font-size:12px;font-weight:500;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;padding:12px 14px 6px}
+.clients{display:grid;padding:4px}
+.client{appearance:none;border:0;background:none;text-align:left;padding:9px 10px;border-radius:6px;cursor:pointer;display:flex;justify-content:space-between;gap:8px;color:var(--ink)}
+.client small{color:var(--ink-3);font-size:12px}
+.client:hover{background:var(--surface)}
+.client[aria-pressed="true"]{background:var(--blue-wash)}
+.client[aria-pressed="true"] b{color:var(--blue)}
+.client b{font-weight:500}
+.prefs{padding:4px 14px 14px;display:grid;gap:12px}
+.prefs h3{font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.prefs h3 small{font-weight:400;color:var(--ink-3);font-size:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;border-radius:4px;padding:3px 8px;background:var(--surface);color:var(--ink-2);border:1px solid var(--line)}
+.chip.hard{background:var(--bad-wash);color:var(--bad);border-color:transparent;font-weight:500}
+.chip.new{outline:2px solid var(--blue);outline-offset:1px}
+.prefs .about{font-size:13px;color:var(--ink-2)}
+
+.main{display:grid;gap:20px;min-width:0}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.summary div{padding:14px 16px;border-left:1px solid var(--line);display:grid;gap:2px}
+.summary div:first-child{border-left:0}
+.summary b{font-family:var(--mono);font-size:24px;font-weight:500}
+.summary span{font-size:12px;color:var(--ink-3)}
+.summary .ok b{color:var(--ok)} .summary .warn b{color:var(--warn)} .summary .bad b{color:var(--bad)}
+.insight{font-size:13px;color:var(--ink-2);margin-top:-8px}
+
+.group > header{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+.group h2{font-size:15px}
+.group header span{font-size:13px;color:var(--ink-3)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none;align-self:center}
+.dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)}
+.list{border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.row{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,2fr) 120px;gap:16px;padding:12px 14px;border-top:1px solid var(--line);align-items:center}
+.row:first-child{border-top:0}
+.who b{font-weight:600}
+.who p{font-size:12px;color:var(--ink-3)}
+.why{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--ink-2)}
+.why .p::before{content:"+ ";color:var(--ok);font-weight:600}
+.why .c::before{content:"– ";color:var(--ink-3);font-weight:600}
+.why .x{color:var(--bad)} .why .x::before{content:"✕ ";font-weight:600}
+.why .m{color:var(--warn)} .why .m::before{content:"? ";font-weight:600}
+.why .o{color:var(--blue)}
+.act{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.score{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:13px}
+.score i{display:block;width:56px;height:6px;border-radius:3px;background:var(--line);position:relative;overflow:hidden}
+.score i::after{content:"";position:absolute;inset:0 auto 0 0;width:var(--w);background:var(--blue)}
+.link{appearance:none;border:0;background:none;color:var(--blue);cursor:pointer;font-size:12px;padding:0}
+.link:hover{text-decoration:underline}
+.ovr{grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap}
+.ovr input{flex:1;min-width:180px}
+.empty{padding:14px;color:var(--ink-3);font-size:13px}
+.ask{grid-column:1 / -1;display:grid;grid-template-columns:1.4fr 1fr;gap:16px;background:var(--surface);border-radius:6px;padding:12px}
+.ask-h{font-size:13px;margin-bottom:6px}
+.ask-s{font-size:12px;color:var(--ink-3);margin-bottom:6px}
+.ask textarea{min-height:170px;font-size:13px;background:var(--bg)}
+.ask label{font-size:12px;color:var(--ink-2);display:block;margin:8px 0 4px}
+.ask-btns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn.rec{box-shadow:0 0 0 2px var(--blue-soft)}
+.done{font-size:12px;color:var(--ok);font-weight:500}
+
+input[type=text],select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%}
+textarea{min-height:84px;resize:vertical}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+.btn{appearance:none;border:0;background:var(--blue);color:#fff;font-weight:500;padding:9px 14px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.btn:disabled{opacity:.6;cursor:default}
+.btn.ghost{background:none;color:var(--blue);border:1px solid var(--line)}
+
+.fb{padding:16px;display:grid;gap:12px}
+.fb .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fb label{font-size:12px;font-weight:500;color:var(--ink-2);display:block;margin-bottom:4px}
+.fb .go{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.fb .src{font-size:12px;color:var(--ink-3)}
+.out{border-top:1px solid var(--line);padding-top:12px;display:grid;gap:10px}
+.out .sum{font-size:14px}
+.tags{display:grid;gap:6px}
+.tagrow{display:grid;grid-template-columns:150px 1fr auto;gap:8px 10px;align-items:center;font-size:13px;padding:8px 10px;background:var(--surface);border-radius:6px}
+.tagacts{grid-column:1 / -1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;padding-top:6px;border-top:1px solid var(--line)}
+.addlbl{font-size:12px;color:var(--ink-2)}
+.tagrow b{font-weight:600}
+.kind{font-size:11px;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.kind.hard{background:var(--bad-wash);color:var(--bad)}
+.kind.soft{background:var(--blue-wash);color:var(--blue)}
+.kind.known{background:var(--warn-wash);color:var(--warn)}
+.suggest{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border:1px solid var(--blue-soft);background:var(--blue-wash);border-radius:6px;padding:10px 12px;font-size:13px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:6px;font-size:13px;max-width:min(560px,calc(100% - 32px));z-index:20}
+
+@media (max-width:900px){
+  .app{grid-template-columns:1fr}
+  .rail{position:static}
+}
+@media (max-width:620px){
+  .summary{grid-template-columns:repeat(2,1fr)}
+  .summary div:nth-child(3){border-left:0}
+  .summary div:nth-child(n+3){border-top:1px solid var(--line)}
+  .row{grid-template-columns:1fr;gap:8px}
+  .act{flex-direction:row;justify-content:space-between;align-items:center}
+  .fb .two{grid-template-columns:1fr}
+  .tagrow{grid-template-columns:1fr auto}
+  .tagrow span.d{grid-column:1 / -1;grid-row:2}
+  .ask{grid-template-columns:1fr}
+}
+</style>
+
+<header class="top"><div class="in">
+  <h1>Pre-Send Check <span>· matchmaker tool</span></h1>
+  <span class="badge">Prototype · mock data</span>
+</div></header>
+
+<div class="app">
+  <aside class="rail">
+    <div class="panel"><h2>Clients</h2><div class="clients" id="clients"></div></div>
+    <div class="panel"><h2>Preferences</h2><div class="prefs" id="prefs"></div></div>
+  </aside>
+
+  <main class="main">
+    <div class="summary" id="summary"></div>
+    <p class="insight" id="insight"></p>
+
+    <section class="group"><header><span class="dot ok"></span><h2>Ready to send</h2><span>Passes every deal-breaker · ranked by fit</span></header><div class="list" id="g-ready"></div></section>
+    <section class="group"><header><span class="dot warn"></span><h2>Needs a check</h2><span>A deal-breaker field is missing on the profile</span></header><div class="list" id="g-check"></div></section>
+    <section class="group"><header><span class="dot bad"></span><h2>Blocked</h2><span>Breaks a deal-breaker the client already gave</span></header><div class="list" id="g-blocked"></div></section>
+
+    <section class="panel">
+      <h2>Log a rejection</h2>
+      <div class="fb">
+        <div class="two">
+          <div><label for="fb-cand">Profile the client rejected</label><select id="fb-cand"></select></div>
+          <div><label for="fb-client">Client</label><input type="text" id="fb-client" disabled></div>
+        </div>
+        <div><label for="fb-text">Client's feedback, as written in the email</label><textarea id="fb-text"></textarea></div>
+        <div class="go"><button class="btn" id="fb-go" type="button">Read feedback</button><span class="src" id="fb-src"></span></div>
+        <div class="out" id="fb-out" hidden></div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+// ---------- mock data ----------
+const C = (id,name,g,age,city,rel,diet,smoking,drinking,wantsKids,edu,job,interests)=>({id,name,g,age,city,rel,diet,smoking,drinking,wantsKids,edu,job,interests});
+const CANDS = [
+  C("m1","Arjun Nair","M",31,"Mumbai","Hindu","veg","no","socially","yes","postgrad","Product manager",["travel","music","fitness"]),
+  C("m2","Rahul Verma","M",30,"Mumbai","Hindu","non-veg","yes","socially","yes","graduate","Sales lead",["cricket","food"]),
+  C("m3","Karan Malhotra","M",32,"Mumbai","Hindu","veg",null,"never","yes","postgrad","Chartered accountant",["reading","travel"]),
+  C("m4","Vikram Singh","M",34,"Delhi","Sikh","non-veg","no","regularly","open","graduate","Army officer",["fitness","travel"]),
+  C("m5","Siddharth Rao","M",29,"Bengaluru","Hindu","eggetarian","no","socially","yes","postgrad","Software engineer",["music","hiking"]),
+  C("m6","Nikhil Joshi","M",33,"Pune","Hindu","veg","no","never","no","postgrad","Architect",["design","travel"]),
+  C("m7","Aman Gupta","M",28,"Mumbai","Jain","veg","no","never","yes","graduate","Family business",["food","cricket"]),
+  C("m8","Farhan Qureshi","M",31,"Mumbai","Muslim","non-veg","no","socially","yes","postgrad","Doctor",["reading","music"]),
+  C("m9","Varun Pillai","M",35,"Bengaluru","Hindu","non-veg","occasionally","socially","yes","doctorate","Research scientist",["reading","hiking"]),
+  C("m10","Ishaan Chopra","M",30,"Hyderabad","Hindu","veg","no","socially",null,"postgrad","Consultant",["travel","fitness"]),
+  C("m11","Manish Kulkarni","M",32,"Pune","Hindu","veg","no","never","yes","graduate","Bank manager",["cricket","music"]),
+  C("m12","Rohit Bansal","M",29,"Delhi","Hindu","veg","no","socially","yes","postgrad","Startup founder",["fitness","travel"]),
+  C("m13","Dev Krishnan","M",33,"Bengaluru","Christian","non-veg","no","socially","yes","postgrad","Data scientist",["hiking","music"]),
+  C("m14","Abhishek Das","M",31,"Hyderabad","Hindu","non-veg","no","never","yes","postgrad","Civil servant",["reading","food"]),
+  C("m15","Tarun Saxena","M",27,"Mumbai","Hindu","veg","yes","regularly","open","graduate","Marketing manager",["music","food"]),
+  C("m16","Gaurav Menon","M",30,"Mumbai","Hindu","veg","no","socially","yes","postgrad","Investment banker",["travel","reading"]),
+  C("f1","Sneha Patil","F",28,"Pune","Hindu","veg","no","never","yes","postgrad","Pharmacist",["reading","music"]),
+  C("f2","Meera Ghosh","F",30,"Delhi","Hindu","non-veg","no","socially","yes","postgrad","Lawyer",["travel","food"]),
+  C("f3","Riya Kapoor","F",27,"Delhi","Hindu","veg","no","socially","no","graduate","Fashion designer",["design","travel"]),
+  C("f4","Aisha Khan","F",29,"Mumbai","Muslim","non-veg","no","never","yes","postgrad","Doctor",["reading","fitness"]),
+  C("f5","Pooja Agarwal","F",31,"Delhi","Hindu","veg","occasionally","socially","yes","postgrad","Chartered accountant",["travel","music"]),
+  C("f6","Nisha Menon","F",28,"Bengaluru","Hindu","non-veg","no","socially",null,"postgrad","UX designer",["design","hiking"]),
+  C("f7","Tanvi Deshpande","F",29,"Pune","Hindu","eggetarian","no","never","yes","postgrad","Software engineer",["music","hiking"]),
+  C("f8","Shreya Jain","F",26,"Delhi","Jain","veg","no","never","yes","graduate","Teacher",["reading","food"]),
+  C("f9","Divya Rao","F",33,"Pune","Hindu","veg","no","socially","yes","doctorate","Professor",["reading","travel"]),
+  C("f10","Kritika Arora","F",30,"Delhi","Hindu","veg",null,"regularly","open","postgrad","Media planner",["music","food"])
+];
+const CLIENTS = [
+  {id:"c1",name:"Priya Sharma",age:29,city:"Mumbai",seeking:"M",about:"Product designer. Wants a partner in Mumbai who shares her love of travel.",
+   deal:[{field:"smoking",allowed:["no"]},{field:"wantsKids",allowed:["yes"]},{field:"diet",allowed:["veg","eggetarian"]},{field:"age",min:28,max:35}],
+   soft:{cities:["Mumbai"],age:[29,33],edu:"postgrad",drinking:["never","socially"],interests:["travel","music","reading"]},
+   sample:{cand:"m11",text:"He seems nice, but he's based in Pune and I don't want to move cities. I'd also prefer someone who doesn't drink much."}},
+  {id:"c2",name:"Ananya Iyer",age:31,city:"Bengaluru",seeking:"M",about:"Lawyer. Career matters a lot to her.",
+   deal:[{field:"smoking",allowed:["no"]},{field:"wantsKids",allowed:["yes","open"]},{field:"age",min:30,max:37}],
+   soft:{cities:["Bengaluru"],age:[31,35],edu:"postgrad",drinking:["socially","never"],interests:["hiking","music","reading"]},
+   sample:{cand:"m13",text:"Too traditional for me. He said he'd want me to slow down at work after marriage. I need someone who supports my career."}},
+  {id:"c3",name:"Rohan Mehta",age:32,city:"Delhi",seeking:"F",about:"Chartered accountant. Family is strictly vegetarian.",
+   deal:[{field:"diet",allowed:["veg"]},{field:"smoking",allowed:["no"]},{field:"age",min:26,max:31}],
+   soft:{cities:["Delhi"],age:[27,30],edu:"graduate",drinking:["never","socially"],interests:["travel","fitness"]},
+   sample:{cand:"f2",text:"Profile looks good but she eats non-veg and my family is strictly vegetarian."}},
+  {id:"c4",name:"Kavya Reddy",age:27,city:"Hyderabad",seeking:"M",about:"Doctor. Doesn't drink and wants a partner who doesn't either.",
+   deal:[{field:"smoking",allowed:["no"]},{field:"drinking",allowed:["never"]},{field:"age",min:27,max:33}],
+   soft:{cities:["Hyderabad","Bengaluru"],age:[28,31],edu:"postgrad",drinking:["never"],interests:["food","reading"]},
+   sample:{cand:"m14",text:"He's fine on paper but works in a transferable government job. I don't want to keep moving every few years."}},
+  {id:"c5",name:"Aditya Kapoor",age:30,city:"Pune",seeking:"F",about:"Engineer. Wants to start a family soon.",
+   deal:[{field:"wantsKids",allowed:["yes"]},{field:"smoking",allowed:["no"]}],
+   soft:{cities:["Pune","Mumbai"],age:[26,30],edu:"graduate",drinking:["never","socially"],interests:["music","hiking"]},
+   sample:{cand:"f5",text:"Not interested. She lives in Delhi and isn't open to relocating to Pune."}}
+];
+const FIELD = {smoking:"Smoking",drinking:"Drinking",diet:"Diet",wantsKids:"Wants children",age:"Age",city:"City"};
+const VAL = {no:"No",yes:"Yes",occasionally:"Occasionally",never:"Never",socially:"Socially",regularly:"Regularly",veg:"Vegetarian",eggetarian:"Eggetarian","non-veg":"Non-veg",open:"Open to it"};
+const EDU = {graduate:1,postgrad:2,doctorate:3};
+const EDU_L = {graduate:"Graduate",postgrad:"Postgraduate",doctorate:"Doctorate"};
+const v = x => VAL[x] || x;
+const esc = s => String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+// ---------- state ----------
+let cur = CLIENTS[0];
+const overrides = {}; // clientId -> {candId: reason}
+let freshRule = null;
+const asked = {}; // candId -> true once the candidate was asked for missing info
+
+// ---------- matching logic ----------
+function ruleLabel(r){
+  if(r.field==="age") return `Age ${r.min}–${r.max}`;
+  if(r.field==="smoking" && r.allowed.length===1 && r.allowed[0]==="no") return "No smoking";
+  if(r.field==="drinking" && r.allowed.length===1 && r.allowed[0]==="never") return "No drinking";
+  if(r.field==="city") return `${r.allowed.join(" or ")} only`;
+  return `${FIELD[r.field]}: ${r.allowed.map(v).join(" or ")}`;
+}
+function evaluate(client, c){
+  const hits=[], missing=[], mf=[];
+  for(const r of client.deal){
+    if(r.field==="age"){ if(c.age<r.min||c.age>r.max) hits.push(`Age ${c.age} (wants ${r.min}–${r.max})`); continue; }
+    const val=c[r.field];
+    if(val==null){ missing.push(`${FIELD[r.field]} not stated`); mf.push(r.field); continue; }
+    if(!r.allowed.includes(val)) hits.push(r.field==="city" ? `Lives in ${val} (wants ${r.allowed.join("/")})` : `${FIELD[r.field]}: ${v(val)} (wants ${r.allowed.map(v).join("/")})`);
+  }
+  // soft-preference score
+  const s=client.soft, pros=[], cons=[]; let pts=0, max=0;
+  max+=25; if(s.cities.includes(c.city)){pts+=25;pros.push(`Lives in ${c.city}`);} else cons.push(`Lives in ${c.city}`);
+  max+=20; if(c.age>=s.age[0]&&c.age<=s.age[1]){pts+=20;pros.push(`Age ${c.age} in ideal range`);} else if(c.age>=s.age[0]-2&&c.age<=s.age[1]+2){pts+=10;cons.push(`Age ${c.age} just outside ideal`);} else cons.push(`Age ${c.age} outside ideal`);
+  max+=20; if(EDU[c.edu]>=EDU[s.edu]){pts+=20;pros.push(EDU_L[c.edu]);} else cons.push(`${EDU_L[c.edu]} (prefers ${EDU_L[s.edu].toLowerCase()})`);
+  max+=15; if(c.drinking==null){pts+=7;} else if(s.drinking.includes(c.drinking)){pts+=15;pros.push(`Drinks: ${v(c.drinking).toLowerCase()}`);} else cons.push(`Drinks ${v(c.drinking).toLowerCase()}`);
+  max+=20; const shared=c.interests.filter(i=>s.interests.includes(i)); pts+=Math.min(shared.length,2)*10; if(shared.length) pros.push(`Shared: ${shared.join(", ")}`);
+  for(const r of (s.extra||[])){ max+=10; const val=c[r.field];
+    if(val==null){pts+=5;} else if(r.allowed.includes(val)){pts+=10;pros.push(r.field==="city"?`In ${val} (preferred)`:`${FIELD[r.field]}: ${v(val).toLowerCase()} (preferred)`);} else cons.push(r.field==="city"?`Not in ${r.allowed.join("/")}`:`${FIELD[r.field]}: ${v(val).toLowerCase()}`); }
+  const score=Math.round(pts/max*100);
+  const ov=(overrides[client.id]||{})[c.id];
+  let status = hits.length ? "blocked" : missing.length ? "check" : "ready";
+  if(ov && status!=="ready") status="ready";
+  return {c,status,hits,missing,mf,score,pros,cons,override:ov};
+}
+function evaluateAll(client){ return CANDS.filter(c=>c.g===client.seeking).map(c=>evaluate(client,c)); }
+
+// ---------- render ----------
+const $=id=>document.getElementById(id);
+function renderClients(){
+  $("clients").innerHTML = CLIENTS.map(cl=>`<button type="button" class="client" data-id="${cl.id}" aria-pressed="${cl.id===cur.id}"><b>${esc(cl.name)}</b><small>${cl.age} · ${esc(cl.city)}</small></button>`).join("");
+  $("clients").querySelectorAll(".client").forEach(b=>b.addEventListener("click",()=>{cur=CLIENTS.find(x=>x.id===b.dataset.id);freshRule=null;renderAll(true);}));
+}
+function renderPrefs(){
+  const s=cur.soft;
+  $("prefs").innerHTML = `
+    <p class="about">${esc(cur.about)}</p>
+    <div><h3>Deal-breakers <small>blocks the profile</small></h3>
+      <div class="chips" style="margin-top:6px">${cur.deal.map(r=>`<span class="chip hard${freshRule&&r===freshRule?" new":""}">${esc(ruleLabel(r))}</span>`).join("")}</div></div>
+    <div><h3>Preferences <small>used for ranking</small></h3>
+      <div class="chips" style="margin-top:6px">
+        <span class="chip">${esc(s.cities.join(" / "))}</span><span class="chip">Ideal age ${s.age[0]}–${s.age[1]}</span>
+        <span class="chip">${EDU_L[s.edu]}+</span><span class="chip">Drinks: ${s.drinking.map(x=>v(x).toLowerCase()).join(" / ")}</span>
+        ${s.interests.map(i=>`<span class="chip">${esc(i)}</span>`).join("")}
+        ${(s.extra||[]).map(r=>`<span class="chip${freshRule&&r===freshRule?" new":""}">${esc(ruleLabel(r))}</span>`).join("")}
+      </div></div>`;
+}
+function rowHTML(e){
+  const c=e.c;
+  const meta=`${c.age} · ${esc(c.city)} · ${esc(c.job)}`;
+  let why="";
+  if(e.status==="blocked") why=e.hits.map(h=>`<span class="x">${esc(h)}</span>`).join("");
+  else if(e.status==="check") why=e.missing.map(m=>`<span class="m">${esc(m)}. Confirm before sending</span>`).join("")+(asked[c.id]?`<span class="o">Asked · waiting for reply</span>`:"");
+  else why=(e.override?`<span class="o">Override: ${esc(e.override)}</span>`:"")+e.pros.map(p=>`<span class="p">${esc(p)}</span>`).join("")+e.cons.slice(0,2).map(p=>`<span class="c">${esc(p)}</span>`).join("");
+  const act = e.status==="ready"
+    ? `<div class="score" title="Fit with soft preferences"><i style="--w:${e.score}%"></i>${e.score}</div>`
+    : e.status==="blocked" ? `<button type="button" class="link" data-ovr="${c.id}">Override</button>`
+    : `<button type="button" class="link" data-ask="${c.id}">${asked[c.id]?"Record answer":"Ask candidate"}</button>`;
+  return `<div class="row" data-row="${c.id}"><div class="who"><b>${esc(c.name)}</b><p>${meta}</p></div><div class="why">${why}</div><div class="act">${act}</div></div>`;
+}
+function renderGroups(evals){
+  const g={ready:[],check:[],blocked:[]};
+  evals.forEach(e=>g[e.status].push(e));
+  g.ready.sort((a,b)=>b.score-a.score);
+  for(const k of ["ready","check","blocked"]) $("g-"+k).innerHTML = g[k].length ? g[k].map(rowHTML).join("") : `<p class="empty">None</p>`;
+  document.querySelectorAll("[data-ovr]").forEach(b=>b.addEventListener("click",()=>openOverride(b.dataset.ovr,b)));
+  document.querySelectorAll("[data-ask]").forEach(b=>b.addEventListener("click",()=>openAsk(b.dataset.ask,b)));
+  // summary
+  const total=evals.length, brk=evals.filter(e=>e.hits.length).length;
+  $("summary").innerHTML = `<div><b>${total}</b><span>Candidates in pool</span></div><div class="ok"><b>${g.ready.length}</b><span>Ready to send</span></div><div class="warn"><b>${g.check.length}</b><span>Needs a check</span></div><div class="bad"><b>${g.blocked.length}</b><span>Blocked</span></div>`;
+  const pron = cur.seeking==="F" ? "his" : "her";
+  $("insight").textContent = `Without this check, ${brk} of ${total} profiles (${Math.round(brk/total*100)}%) could have been sent to ${cur.name.split(" ")[0]} even though they break one of ${pron} deal-breakers.`;
+  return g;
+}
+function openOverride(id,btn){
+  const row=btn.closest(".row"); if(row.querySelector(".ovr")) return;
+  const isCheck=btn.textContent.startsWith("Mark");
+  const d=document.createElement("div"); d.className="ovr";
+  d.innerHTML=`<input type="text" id="ovr-${id}" placeholder="${isCheck?"e.g. Called him, confirmed he doesn't smoke":"Reason, e.g. client said she's flexible on this"}"><button type="button" class="btn">Save</button><button type="button" class="btn ghost">Cancel</button>`;
+  row.appendChild(d);
+  const inp=d.querySelector("input"); inp.focus();
+  d.querySelector(".btn.ghost").onclick=()=>d.remove();
+  d.querySelector(".btn:not(.ghost)").onclick=()=>{
+    const r=inp.value.trim(); if(!r){inp.focus();inp.placeholder="A reason is needed";return;}
+    (overrides[cur.id] ||= {})[id] = (isCheck?"Confirmed: ":"")+r;
+    renderAll(false); toast(isCheck?"Marked as confirmed and moved to Ready.":"Override saved with reason. Moved to Ready.");
+  };
+}
+const QUESTION={smoking:["Do you smoke?",["no","occasionally","yes"]],wantsKids:["Would you like to have children?",["yes","no","open"]],drinking:["How often do you drink?",["never","socially","regularly"]],diet:["What is your diet?",["veg","eggetarian","non-veg"]]};
+function openAsk(id,btn){
+  const row=btn.closest(".row"); if(row.querySelector(".ask")) return;
+  const c=CANDS.find(x=>x.id===id), e=evaluate(cur,c), first=c.name.split(" ")[0];
+  const qs=e.mf.filter(f=>QUESTION[f]);
+  const body=`Hi ${first},\n\nWe're updating your profile so we can introduce you to the right people. Could you quickly confirm the following?\n\n${qs.map(f=>`• ${QUESTION[f][0]} (${QUESTION[f][1].map(v).join(" / ")})`).join("\n")}\n\nJust reply to this email. Thank you!\n\nYour matchmaker`;
+  const d=document.createElement("div"); d.className="ask";
+  d.innerHTML=`<div class="ask-mail"><p class="ask-h"><b>Email draft</b> · to ${esc(c.name)}</p><p class="ask-s">Subject: Two-minute update to your profile</p><textarea id="ask-body-${id}" readonly>${esc(body)}</textarea>
+    <div class="ask-btns"><button type="button" class="btn ghost" data-copy>Copy email</button><button type="button" class="btn" data-sent>Mark as sent</button></div></div>
+    <div class="ask-ans"><p class="ask-h"><b>Got the answer?</b> Record it to re-check the profile.</p>
+    ${qs.map(f=>`<label for="ans-${id}-${f}">${esc(QUESTION[f][0])}</label><select id="ans-${id}-${f}" data-f="${f}"><option value="">Not answered yet</option>${QUESTION[f][1].map(o=>`<option value="${o}">${esc(v(o))}</option>`).join("")}</select>`).join("")}
+    <div class="ask-btns"><button type="button" class="btn" data-save>Save answer</button><button type="button" class="btn ghost" data-close>Close</button></div></div>`;
+  row.appendChild(d);
+  const ta=d.querySelector("textarea");
+  d.querySelector("[data-copy]").onclick=async()=>{ try{ await navigator.clipboard.writeText(ta.value); toast("Email copied."); }catch(err){ ta.focus(); ta.select(); toast("Press Ctrl+C / Cmd+C to copy."); } };
+  d.querySelector("[data-sent]").onclick=()=>{ asked[id]=true; renderAll(false); toast(`Marked as sent. ${first} stays in "Needs a check" until he or she replies.`); };
+  d.querySelector("[data-close]").onclick=()=>d.remove();
+  d.querySelector("[data-save]").onclick=()=>{
+    let n=0; d.querySelectorAll("select[data-f]").forEach(sel=>{ if(sel.value){ c[sel.dataset.f]=sel.value; n++; } });
+    if(!n){ toast("Pick an answer first."); return; }
+    delete asked[id];
+    const after=evaluate(cur,c).status;
+    renderAll(false);
+    toast(after==="ready"?`${first} now passes every deal-breaker and moved to Ready.`:after==="blocked"?`${first} breaks a deal-breaker and moved to Blocked.`:`Saved. Some details are still missing.`);
+  };
+}
+function renderFeedbackForm(evals,keep){
+  const sel=$("fb-cand"), prev=sel.value;
+  sel.innerHTML = evals.map(e=>`<option value="${e.c.id}">${esc(e.c.name)} (${e.c.age}, ${esc(e.c.city)})</option>`).join("");
+  $("fb-client").value = cur.name;
+  if(keep && prev) sel.value=prev;
+  if(!keep){ sel.value=cur.sample.cand; $("fb-text").value=cur.sample.text; $("fb-out").hidden=true; $("fb-out").innerHTML=""; }
+}
+function renderAll(resetForm){
+  renderClients(); renderPrefs();
+  const evals=evaluateAll(cur); renderGroups(evals); renderFeedbackForm(evals,!resetForm);
+}
+
+// ---------- feedback reading ----------
+const CATS=["Location","Smoking","Drinking","Diet","Children","Age","Career & values","Lifestyle","Family","Education","Appearance","Other"];
+const CAT_FIELD={Location:"city",Smoking:"smoking",Drinking:"drinking",Diet:"diet",Children:"wantsKids",Age:"age"};
+let sample=null;
+(async()=>{ try{ if(window.claude&&claude.use){ sample=await claude.use("sample"); } }catch(e){ sample=null; } $("fb-src").textContent = sample?"Uses Claude to read the feedback":"AI isn't available in this view. Keyword rules will be used."; })();
+$("fb-src").textContent="";
+
+function keywordRead(text, client, cand){
+  const t=text.toLowerCase(), out=[];
+  const add=(category,detail,strength,rule=null)=>{ if(!out.find(o=>o.category===category)) out.push({category,detail,strength,rule}); };
+  const strong=/(don'?t want|do not want|won'?t|not open|strictly|never|must|need|only|isn'?t open)/.test(t);
+  if(/(based in|lives in|live in|move|moving|relocat|far|city|cities|transfer)/.test(t)){
+    const transfer=/transfer|keep moving|every few years/.test(t);
+    add("Location", transfer?"Doesn't want a job that moves cities":`Wants a partner in ${client.soft.cities.join(" or ")}`, strong?"deal_breaker":"preference", transfer?null:{field:"city",allowed:[...client.soft.cities]});
+  }
+  if(/smok|cigarette/.test(t)) add("Smoking","Doesn't want a smoker","deal_breaker",{field:"smoking",allowed:["no"]});
+  if(/drink|alcohol|party/.test(t)){ const light=/much|heavy|a lot/.test(t); add("Drinking", light?"Prefers someone who drinks little":"Doesn't want a drinker", /much|prefer/.test(t)?"preference":"deal_breaker", {field:"drinking",allowed:light?["never","socially"]:["never"]}); }
+  if(/non-veg|nonveg|meat|vegetarian|eggs?\b|diet/.test(t)) add("Diet","Needs a vegetarian partner","deal_breaker",{field:"diet",allowed:["veg"]});
+  if(/kids|children|child|family soon/.test(t)) add("Children","Children expectations don't match",strong?"deal_breaker":"preference",{field:"wantsKids",allowed:["yes"]});
+  if(/too old|too young|older|younger|age gap|\bage\b/.test(t)) add("Age","Age gap too large","preference");
+  if(/career|work|job|traditional|independent|values/.test(t) && !/transfer/.test(t)) add("Career & values","Wants a partner who supports her career",strong?"deal_breaker":"preference");
+  if(/hours|busy|time for/.test(t)) add("Lifestyle","Wants more time together","preference");
+  if(/parents|family/.test(t) && !out.find(o=>o.category==="Diet")) add("Family","Family expectations","preference");
+  if(/photo|height|too tall|too short|not attractive|not my type/.test(t)) add("Appearance","Physical preference","preference");
+  if(!out.length) add("Other","Reason not clear. Ask the client","preference");
+  return {summary:"", reasons:out};
+}
+
+function buildPrompt(text, client, cand){
+  return `You help a matchmaking team turn a client's free-text rejection of a profile into structured data.
+
+Client: ${client.name}, ${client.age}, ${client.city}.
+Client's current deal-breakers: ${client.deal.map(ruleLabel).join("; ")}.
+Client's preferred cities: ${client.soft.cities.join(", ")}.
+Rejected profile: ${cand.name}, ${cand.age}, lives in ${cand.city}, diet ${cand.diet}, smoking ${cand.smoking??"not stated"}, drinking ${cand.drinking??"not stated"}, wants children ${cand.wantsKids??"not stated"}, job ${cand.job}.
+Client's feedback: """${text.slice(0,2000)}"""
+
+Reply with only JSON in this shape:
+{"summary": "one plain sentence on why the client said no",
+ "reasons": [{"category": one of ${JSON.stringify(CATS)},
+              "detail": "short phrase",
+              "strength": "deal_breaker" if the client says never/must/only/won't, otherwise "preference",
+              "rule": null or {"field": one of ["city","smoking","drinking","diet","wantsKids"], "allowed": [values the client would accept]}}]}
+Allowed values: city = city names; smoking = "no","occasionally","yes"; drinking = "never","socially","regularly"; diet = "veg","eggetarian","non-veg"; wantsKids = "yes","no","open".
+Give a rule only when the reason maps clearly to one of those fields. Use at most 3 reasons.`;
+}
+
+function cleanRule(r){
+  if(!r||typeof r!=="object") return null;
+  const ok={city:null,smoking:["no","occasionally","yes"],drinking:["never","socially","regularly"],diet:["veg","eggetarian","non-veg"],wantsKids:["yes","no","open"]};
+  if(!(r.field in ok)||!Array.isArray(r.allowed)) return null;
+  const allowed=r.allowed.map(String).filter(x=>ok[r.field]?ok[r.field].includes(x):x.trim()).slice(0,4);
+  return allowed.length?{field:r.field,allowed}:null;
+}
+const sameRule=(a,b)=>a&&b&&a.field===b.field&&JSON.stringify([...a.allowed].sort())===JSON.stringify([...b.allowed].sort());
+
+$("fb-go").addEventListener("click", async ()=>{
+  const btn=$("fb-go"), out=$("fb-out"), text=$("fb-text").value.trim();
+  const cand=CANDS.find(c=>c.id===$("fb-cand").value), client=cur;
+  if(!text){ $("fb-text").focus(); return; }
+  btn.disabled=true; btn.textContent="Reading…"; out.hidden=false; out.innerHTML=`<p class="src">Reading the feedback…</p>`;
+  let res=null, usedAI=false;
+  if(sample){
+    try{
+      const j=await sample.json(buildPrompt(text,client,cand),{modelTier:"quick"});
+      if(j&&Array.isArray(j.reasons)){ res={summary:String(j.summary||""),reasons:j.reasons.slice(0,3).map(r=>({category:CATS.includes(r.category)?r.category:"Other",detail:String(r.detail||""),strength:r.strength==="deal_breaker"?"deal_breaker":"preference",rule:cleanRule(r.rule)}))}; usedAI=true; }
+    }catch(e){ if(["not_granted","sampling_disabled","not_declared","capability_disabled","capability_removed"].includes(e&&e.code)) sample=null; }
+  }
+  if(!res) res=keywordRead(text,client,cand);
+  renderReading(res,client,cand,usedAI);
+  btn.disabled=false; btn.textContent="Read feedback";
+});
+
+function renderReading(res,client,cand,usedAI){
+  const out=$("fb-out");
+  const ev=evaluate(client,cand);
+  const first=client.name.split(" ")[0];
+  let anyAction=false;
+  const rows=res.reasons.map((r,i)=>{
+    const f=CAT_FIELD[r.category];
+    const known = f && client.deal.find(d=>d.field===f) && ev.hits.some(h=>h.startsWith(FIELD[f]) || (f==="city"&&h.startsWith("Lives")) || (f==="age"&&h.startsWith("Age")));
+    const exists = r.rule && (client.deal.some(d=>sameRule(d,r.rule)) || (client.soft.extra||[]).some(d=>sameRule(d,r.rule)));
+    const kind = known?`<span class="kind known">Already a deal-breaker</span>`: r.strength==="deal_breaker"?`<span class="kind hard">Sounds like a deal-breaker</span>`:`<span class="kind soft">Sounds like a preference</span>`;
+    let acts="";
+    if(r.rule && !known && !exists){
+      anyAction=true;
+      const recD=r.strength==="deal_breaker";
+      acts=`<span class="addlbl">Add “${esc(ruleLabel(r.rule))}” as</span><button type="button" class="btn sm${recD?" rec":" ghost"}" data-add="deal" data-i="${i}">Deal-breaker</button><button type="button" class="btn sm${recD?" ghost":" rec"}" data-add="pref" data-i="${i}">Preference</button>`;
+    } else if(exists && !known){ acts=`<span class="done">Already saved</span>`; }
+    return `<div class="tagrow" data-tag="${i}"><b>${esc(r.category)}</b><span class="d">${esc(r.detail)}</span><div class="acts">${kind}</div>${acts?`<div class="tagacts">${acts}</div>`:""}</div>`;
+  }).join("");
+  const knownNote = ev.hits.length ? `<p class="src">This profile already broke a deal-breaker (${esc(ev.hits.join("; "))}). The pre-send check would have blocked it.</p>` : "";
+  const untracked = (!anyAction && !ev.hits.length && res.reasons.some(r=>!r.rule && r.strength==="deal_breaker")) ? `<div class="suggest"><span>No profile field covers this yet. It is logged as a tag so the team can see how often it comes up.</span></div>` : "";
+  const help = anyAction ? `<p class="src">Deal-breaker blocks profiles. Preference only changes the ranking. The highlighted option is what the client's wording suggests; you decide.</p>` : "";
+  out.innerHTML = `${res.summary?`<p class="sum">${esc(res.summary)}</p>`:""}<div class="tags">${rows}</div>${help}${knownNote}${untracked}<p class="src">${usedAI?"Read by Claude":"Read by keyword rules. AI isn't available in this view"}</p>`;
+  out.querySelectorAll("[data-add]").forEach(b=>b.addEventListener("click",()=>{
+    const r=res.reasons[+b.dataset.i], rule={field:r.rule.field,allowed:[...r.rule.allowed]};
+    const blockedBefore=evaluateAll(client).filter(e=>e.status==="blocked").length;
+    client.soft.extra ||= [];
+    if(b.dataset.add==="deal"){
+      const i=client.deal.findIndex(d=>d.field===rule.field); if(i>=0) client.deal[i]=rule; else client.deal.push(rule);
+      client.soft.extra=client.soft.extra.filter(d=>d.field!==rule.field);
+    } else {
+      const i=client.soft.extra.findIndex(d=>d.field===rule.field); if(i>=0) client.soft.extra[i]=rule; else client.soft.extra.push(rule);
+    }
+    freshRule=rule; renderAll(false);
+    const n=evaluateAll(client).filter(e=>e.status==="blocked").length-blockedBefore;
+    const msg = b.dataset.add==="deal"
+      ? `Added as deal-breaker. ${n>0?`${n} more profile${n>1?"s":""} blocked for ${first}.`:"No other profiles affected."}`
+      : `Added as preference. ${first}'s ranking is updated; nothing is blocked.`;
+    b.closest(".tagrow").querySelector(".tagacts").innerHTML=`<span class="done">${esc(msg)}</span>`;
+    toast(msg);
+  }));
+}
+
+let tt; function toast(m){ const t=$("toast"); t.textContent=m; t.hidden=false; clearTimeout(tt); tt=setTimeout(()=>t.hidden=true,3200); }
+
+window.__presend={evaluateAll,CLIENTS,keywordRead};
+renderAll(true);
+})();
+</script>
+
+</body>
+</html>
