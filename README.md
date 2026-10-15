@@ -4,7 +4,7 @@ A prototype tool for matchmakers. It checks every profile against the client's p
 
 Built for The Date Crew Product Growth Assessment.
 
-**Live demo:** https://claude.ai/artifact/JMTgvymvNLMdPuBpNtTE9X
+**Live demo:** https://raspy-chatter-a81.notion.site/The-Date-Crew-Product-Growth-Assessment-3f9610b6f5288029a5bcf6b37e7809f0
 
 ## The problem it solves
 
